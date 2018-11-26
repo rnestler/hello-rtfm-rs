@@ -9,7 +9,9 @@ version = "0.1.0"
 cortex-m = "0.5.8"
 cortex-m-rt = "0.6.5"
 cortex-m-semihosting = "0.3.2"
-panic-halt = "0.2.0"
+panic-semihosting = "0.5.1"
+stm32f30x = "*"
+cortex-m-rtfm = {git="https://github.com/japaric/cortex-m-rtfm.git"}
 
 # Uncomment for the panic example.
 # panic-itm = "0.4.0"

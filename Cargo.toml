@@ -14,8 +14,8 @@ cortex-m-rtfm = {git="https://github.com/japaric/cortex-m-rtfm.git"}
 
 
 [dependencies.stm32f30x]
-git = "https://github.com/rnestler/stm32f30x.git"
-branch = "svd2rust-master"
+git = "https://github.com/japaric/stm32f30x.git"
+branch = "master"
 features= ["rt"]
 
 # this lets you use `cargo fix`!

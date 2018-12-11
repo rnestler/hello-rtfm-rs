@@ -4,14 +4,13 @@
 extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
 extern crate stm32f30x;
 
-use cortex_m_semihosting::{debug, hprintln};
+use cortex_m_semihosting::hprintln;
 use stm32f30x::{interrupt, Interrupt};
 use rtfm::app;
 
 #[app(device = stm32f30x)]
 const APP: () = {
-    // A resource
-    static mut SHARED: u32 = 0;
+    static mut SHARED: u32 = 0; // A resource
 
     #[init]
     fn init() {

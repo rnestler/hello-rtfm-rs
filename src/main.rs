@@ -24,7 +24,6 @@ const APP: () = {
 
         hprintln!("idle 2").unwrap();
 
-        debug::exit(debug::EXIT_SUCCESS);
         loop {}
     }
 

@@ -4,27 +4,44 @@
 extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
 extern crate stm32f30x;
 
-use cortex_m_semihosting::{debug, hprintln};
-use stm32f30x::{interrupt, Interrupt};
-use rtfm::app;
+use cortex_m_semihosting::hprintln;
+use stm32f30x::interrupt;
+use rtfm::{self, app};
+
+use f3::{
+    hal::{delay::Delay, prelude::*},
+    led::Leds,
+};
 
 #[app(device = stm32f30x)]
 const APP: () = {
+    static mut LEDS: Leds = ();
+    static mut DELAY: Delay = ();
+
     #[init]
     fn init() {
-        rtfm::pend(Interrupt::SPI1);
-        hprintln!("init").unwrap();
+        // device and core get injected by RTFM
+        let mut flash = device.FLASH.constrain();
+        let mut rcc = device.RCC.constrain();
+        let gpioe = device.GPIOE.split(&mut rcc.ahb);
+        let clocks = rcc.cfgr.freeze(&mut flash.acr);
+
+        LEDS = Leds::new(gpioe);
+        DELAY = Delay::new(core.SYST, clocks);
     }
 
-    #[idle]
+    #[idle(resources = [LEDS, DELAY])]
     fn idle() -> ! {
-        hprintln!("idle").unwrap();
+        let n = resources.LEDS.len();
+        loop {
+            for curr in 0..n {
+                let next = (curr + 1) % n;
+                resources.LEDS[curr].off();
+                resources.LEDS[next].on();
 
-        rtfm::pend(Interrupt::SPI1);
-
-        hprintln!("idle 2").unwrap();
-
-        loop {}
+                resources.DELAY.delay_ms(100_u8);
+            }
+        }
     }
 
     #[interrupt]

@@ -13,8 +13,18 @@ panic-semihosting = "0.5.1"
 cortex-m-rtfm = {git="https://github.com/japaric/cortex-m-rtfm.git"}
 
 
+[dependencies.f3]
+git = "https://github.com/rnestler/f3.git"
+branch = "upgrade-device-crate"
+features= ["rt"]
+
 [dependencies.stm32f30x]
 version = "0.8.0"
+features= ["rt"]
+
+[dependencies.stm32f30x-hal]
+git = "https://github.com/rnestler/stm32f30x-hal.git"
+branch = "update-device-crate"
 features= ["rt"]
 
 # this lets you use `cargo fix`!

@@ -10,35 +10,33 @@ use rtfm::app;
 
 #[app(device = stm32f30x)]
 const APP: () = {
+    // A resource
+    static mut SHARED: u32 = 0;
+
     #[init]
     fn init() {
         rtfm::pend(Interrupt::SPI1);
+        rtfm::pend(Interrupt::SPI2);
         hprintln!("init").unwrap();
     }
 
     #[idle]
     fn idle() -> ! {
         hprintln!("idle").unwrap();
-
-        rtfm::pend(Interrupt::SPI1);
-
-        hprintln!("idle 2").unwrap();
-
+        // *resources.SHARED += 1; // doesn't compile
         loop {}
     }
 
-    #[interrupt]
+    #[interrupt(resources = [SHARED])]
     fn SPI1() {
-        static mut TIMES: u32 = 0;
+        *resources.SHARED += 1;
+        hprintln!("SPI1: SHARED = {}", resources.SHARED).unwrap();
+    }
 
-        // Safe access to local `static mut` variable
-        *TIMES += 1;
-
-        hprintln!(
-            "SPI1 called {} time{}",
-            *TIMES,
-            if *TIMES > 1 { "s" } else { "" }
-        ).unwrap();
+    #[interrupt(resources = [SHARED])]
+    fn SPI2() {
+        *resources.SHARED += 1;
+        hprintln!("SPI2: SHARED = {}", resources.SHARED).unwrap();
     }
 };
 

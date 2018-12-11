@@ -4,8 +4,6 @@
 extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
 extern crate stm32f30x;
 
-use cortex_m_semihosting::hprintln;
-use stm32f30x::interrupt;
 use rtfm::{self, app};
 
 use f3::{
@@ -42,20 +40,6 @@ const APP: () = {
                 resources.DELAY.delay_ms(100_u8);
             }
         }
-    }
-
-    #[interrupt]
-    fn SPI1() {
-        static mut TIMES: u32 = 0;
-
-        // Safe access to local `static mut` variable
-        *TIMES += 1;
-
-        hprintln!(
-            "SPI1 called {} time{}",
-            *TIMES,
-            if *TIMES > 1 { "s" } else { "" }
-        ).unwrap();
     }
 };
 

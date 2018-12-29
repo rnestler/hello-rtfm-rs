@@ -13,20 +13,20 @@ use stm32f30x::{USART1};
 use nb;
 
 use f3::{
-    hal::{prelude::*, serial::{Serial, Tx, Rx}},
+    hal::{prelude::*, serial::{self, Serial, Tx, Rx}},
     led::Leds,
 };
 
 const PERIOD: u32 = 1_000_000;
-const USART_PERIOD: u32 = 1_000;
 
 #[app(device = stm32f30x)]
 const APP: () = {
+    static mut CURRENT_LED: usize = 0;
     static mut LEDS: Leds = ();
     static mut SERIAL_TX: Tx<USART1> = ();
     static mut SERIAL_RX: Rx<USART1> = ();
 
-    #[init(schedule = [leds, uart_echo])]
+    #[init(schedule = [leds])]
     fn init() {
         // device and core get injected by RTFM
         let mut rcc = device.RCC.constrain();
@@ -35,7 +35,6 @@ const APP: () = {
         let gpioe = device.GPIOE.split(&mut rcc.ahb);
 
         let now = Instant::now();
-        schedule.uart_echo(now).unwrap();
         schedule.leds(now + PERIOD.cycles()).unwrap();
         let mut gpioc = device.GPIOC.split(&mut rcc.ahb);
 
@@ -44,7 +43,8 @@ const APP: () = {
         let tx = gpioc.pc4.into_af7(&mut gpioc.moder, &mut gpioc.afrl);
         let rx = gpioc.pc5.into_af7(&mut gpioc.moder, &mut gpioc.afrl);
 
-        let serial = Serial::usart1(device.USART1, (tx, rx), 115_200.bps(), clocks, &mut rcc.apb2);
+        let mut serial = Serial::usart1(device.USART1, (tx, rx), 115_200.bps(), clocks, &mut rcc.apb2);
+        serial.listen(serial::Event::Rxne);
         let (tx, rx) = serial.split();
 
         LEDS = Leds::new(gpioe);
@@ -52,35 +52,55 @@ const APP: () = {
         SERIAL_RX = rx;
     }
 
-    #[task(resources = [SERIAL_TX, SERIAL_RX], schedule = [uart_echo])]
-    fn uart_echo() {
-        match resources.SERIAL_RX.read() {
-            Ok(byte) => {
-                match resources.SERIAL_TX.write(byte) {
-                    Err(err) => {
-                        hprintln!("W: {:?}", err).unwrap();
-                    }
-                    _ => {}
-                }
-            }
-            Err(nb::Error::WouldBlock) => {}
+    #[task(capacity = 4, resources = [SERIAL_TX, LEDS, CURRENT_LED])]
+    fn uart_handler(byte: u8) {
+        match resources.SERIAL_TX.write(byte) {
             Err(err) => {
-                hprintln!("R: {:?}", err).unwrap();
+                hprintln!("W: {:?}", err).unwrap();
             }
+            _ => {}
         }
-        schedule.uart_echo(scheduled + USART_PERIOD.cycles()).unwrap();
+
+        let new_led = match byte {
+            b'w' => 0,
+            b'e' => 1,
+            b'd' => 2,
+            b'c' => 3,
+            b'x' => 4,
+            b'z' => 5,
+            b'a' => 6,
+            b'q' => 7,
+            _ => *resources.CURRENT_LED,
+        };
+        if new_led != *resources.CURRENT_LED {
+            resources.LEDS[*resources.CURRENT_LED].off();
+            *resources.CURRENT_LED = new_led;
+        }
     }
 
-    #[task(resources = [LEDS], schedule = [leds])]
+    #[task(resources = [LEDS, CURRENT_LED], schedule = [leds])]
     fn leds() {
-        static mut curr: usize = 0;
+        static mut on: bool = true;
+
         schedule.leds(scheduled + PERIOD.cycles()).unwrap();
-        resources.LEDS[*curr].off();
-        *curr += 1;
-        if *curr > 7 {
-            *curr = 0;
+
+        if *on {
+            resources.LEDS[*resources.CURRENT_LED].off();
+            *on = false;
+        } else {
+            resources.LEDS[*resources.CURRENT_LED].on();
+            *on = true;
         }
-        resources.LEDS[*curr].on();
+    }
+
+    #[interrupt(spawn = [uart_handler], resources = [SERIAL_RX])]
+    fn USART1_EXTI25() {
+        match resources.SERIAL_RX.read() {
+            Ok(byte) =>  {
+                spawn.uart_handler(byte).unwrap();
+            }
+            _ => {}
+        }
     }
 
     extern "C" {

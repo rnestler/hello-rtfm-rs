@@ -4,9 +4,13 @@
 extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
 extern crate stm32f30x;
 
+use cortex_m_semihosting::hprintln;
+
 use rtfm::{self, app, Instant};
 
 use stm32f30x::{USART1};
+
+use nb;
 
 use f3::{
     hal::{prelude::*, serial::{Serial, Tx, Rx}},
@@ -14,6 +18,7 @@ use f3::{
 };
 
 const PERIOD: u32 = 1_000_000;
+const USART_PERIOD: u32 = 1_000;
 
 #[app(device = stm32f30x)]
 const APP: () = {
@@ -21,7 +26,7 @@ const APP: () = {
     static mut SERIAL_TX: Tx<USART1> = ();
     static mut SERIAL_RX: Rx<USART1> = ();
 
-    #[init(schedule = [leds])]
+    #[init(schedule = [leds, uart_echo])]
     fn init() {
         // device and core get injected by RTFM
         let mut rcc = device.RCC.constrain();
@@ -30,6 +35,7 @@ const APP: () = {
         let gpioe = device.GPIOE.split(&mut rcc.ahb);
 
         let now = Instant::now();
+        schedule.uart_echo(now).unwrap();
         schedule.leds(now + PERIOD.cycles()).unwrap();
         let mut gpioc = device.GPIOC.split(&mut rcc.ahb);
 
@@ -44,6 +50,25 @@ const APP: () = {
         LEDS = Leds::new(gpioe);
         SERIAL_TX = tx;
         SERIAL_RX = rx;
+    }
+
+    #[task(resources = [SERIAL_TX, SERIAL_RX], schedule = [uart_echo])]
+    fn uart_echo() {
+        match resources.SERIAL_RX.read() {
+            Ok(byte) => {
+                match resources.SERIAL_TX.write(byte) {
+                    Err(err) => {
+                        hprintln!("W: {:?}", err).unwrap();
+                    }
+                    _ => {}
+                }
+            }
+            Err(nb::Error::WouldBlock) => {}
+            Err(err) => {
+                hprintln!("R: {:?}", err).unwrap();
+            }
+        }
+        schedule.uart_echo(scheduled + USART_PERIOD.cycles()).unwrap();
     }
 
     #[task(resources = [LEDS], schedule = [leds])]

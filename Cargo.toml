@@ -10,6 +10,7 @@ cortex-m = "0.5.8"
 cortex-m-rt = "0.6.5"
 cortex-m-semihosting = "0.3.2"
 panic-semihosting = "0.5.1"
+nb = "0.1.1"
 
 [dependencies.cortex-m-rtfm]
 git = "https://github.com/japaric/cortex-m-rtfm.git"

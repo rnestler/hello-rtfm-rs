@@ -9,7 +9,7 @@ use rtfm::{self, app, Instant};
 use stm32f30x::{USART1};
 
 use f3::{
-    hal::{prelude::*, serial::Serial, gpio::{self, gpioa}},
+    hal::{prelude::*, serial::{Serial, Tx, Rx}},
     led::Leds,
 };
 
@@ -18,7 +18,8 @@ const PERIOD: u32 = 1_000_000;
 #[app(device = stm32f30x)]
 const APP: () = {
     static mut LEDS: Leds = ();
-    static mut SERIAL: Serial<USART1,(gpioa::PA9<gpio::AF7>, gpioa::PA10<gpio::AF7>) > = ();
+    static mut SERIAL_TX: Tx<USART1> = ();
+    static mut SERIAL_RX: Rx<USART1> = ();
 
     #[init(schedule = [leds])]
     fn init() {
@@ -30,17 +31,19 @@ const APP: () = {
 
         let now = Instant::now();
         schedule.leds(now + PERIOD.cycles()).unwrap();
-        let mut gpioa = device.GPIOA.split(&mut rcc.ahb);
+        let mut gpioc = device.GPIOC.split(&mut rcc.ahb);
 
         let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-        let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-        let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
+        let tx = gpioc.pc4.into_af7(&mut gpioc.moder, &mut gpioc.afrl);
+        let rx = gpioc.pc5.into_af7(&mut gpioc.moder, &mut gpioc.afrl);
 
         let serial = Serial::usart1(device.USART1, (tx, rx), 115_200.bps(), clocks, &mut rcc.apb2);
+        let (tx, rx) = serial.split();
 
         LEDS = Leds::new(gpioe);
-        SERIAL = serial;
+        SERIAL_TX = tx;
+        SERIAL_RX = rx;
     }
 
     #[task(resources = [LEDS], schedule = [leds])]
